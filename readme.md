@@ -1,4 +1,4 @@
-Automatically analyize your date in browser.
+Automatically analyize your data in browser.
 
 Welcome to ____ a browser based exploratory data analysis (EDA) and machine learning (ML) demo where you can learn about the process of ML model development. Here you will walk through the process of initial data evaluation and processing, finishing with the construction of a model.
 
@@ -40,9 +40,9 @@ Data Relationships:
 
 
 Modelling:
+- Describe the types of modelling problems i.e. regression, classification and how the available models are used to solve them
 - Build accordian with a description of each model, and some assumptions about them i.e. linear relationships, variable independence, scaling of input to [0,1], etc
     - NOTE: when talking about linear relationship, this is a good time to include some brief details referencing transformations that can be applied to the variables.
-- Describe the types of modelling problems i.e. regression, classification and how the available models are used to solve them
 - Create a checklist for each of: model type, target variable, predictors
 - Create a plot for each model type that best shows off the performance of the model
 - Create a brief table with some of the measurements used to determine model performance
