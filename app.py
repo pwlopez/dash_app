@@ -11,6 +11,9 @@ import plotly.io as pio
 from plotly.subplots import make_subplots
 import plotly.express as px
 import plotly.graph_objects as go
+from xgboost import XGBClassifier, XGBRegressor
+from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression
 
 # Base dataset to use if no dataset is provided
 iris_data = pd.read_csv("Iris.csv", index_col="Id")
@@ -263,11 +266,11 @@ app.layout = dbc.Container(
                     dbc.Row([
                         dbc.Col([
                             dbc.Label("Model Type"),
-                            dbc.Checklist(
+                            dbc.RadioItems(
                                 options=[
-                                    {"label": "Option 1", "value": 1},
-                                    {"label": "Option 2", "value": 2},
-                                    {"label": "Disabled Option", "value": 3, "disabled": True},
+                                    {"label": "XGBoost", "value":"XGBoost", "disabled": False},
+                                    {"label": "OLS", "value":"OLS", "disabled": False},
+                                    {"label": "K-means++", "value":"K-means++", "disabled": False},
                                 ],
                                 id="model-switches",
                                 switch=True,
@@ -309,9 +312,6 @@ app.layout = dbc.Container(
                                 ),
                                 justify="center"
                             ),
-                            dbc.Row([
-                                dcc.Graph()
-                            ])
                         ], label="Ordinary Least Squares Regression", className="p-2"),
                         dbc.Tab([
                             dbc.Row(
@@ -325,9 +325,6 @@ app.layout = dbc.Container(
                                 ),
                                 justify="center"
                             ),
-                            dbc.Row([
-                                dcc.Graph()
-                            ])
                         ], label="XGBoost", className="p-2"),
                         dbc.Tab([
                             dbc.Row(
@@ -340,11 +337,11 @@ app.layout = dbc.Container(
                                     width={"size": 10}
                                 ),
                                 justify="center"
-                            ),
-                            dbc.Row([
-                                dcc.Graph()
-                            ])
+                            )
                         ], label="K-means++",  className="p-2")
+                    ]),
+                    dbc.Row([
+                        dcc.Graph(id="model-graph")
                     ])
                 ])
             ])
@@ -537,9 +534,9 @@ def remove_redundant(value, data):
 def create_target_options(data):
     if data:
         df = pd.DataFrame.from_dict(data)
-        return [{"label":col, "value":i+1, "disabled":False} for i, col in enumerate(df.columns)]
+        return [{"label":col, "value":col, "disabled":False} for i, col in enumerate(df.columns)]
     else:
-        return [{"label":col, "value":i+1, "disabled":False} for i, col in enumerate(iris_data.columns)]
+        return [{"label":col, "value":col, "disabled":False} for i, col in enumerate(iris_data.columns)]
     
 @app.callback(Output("predictor-switches", "options"),
               Output("predictor-switches", "value"),
@@ -550,21 +547,79 @@ def update_predictor_options(data, value):
         df = pd.DataFrame.from_dict(data)
         options = []
         for i, col in enumerate(df.columns):
-            option = {"label":col, "value":i+1, "disabled":False}
-            if value and i+1 == value:
+            option = {"label":col, "value":col, "disabled":False}
+            if value and col == value:
                 option["disabled"] = True
                 # Remove target from value list
             options.append(option)
     else:
         options = []
         for i, col in enumerate(iris_data.columns):
-            option = {"label":col, "value":i+1, "disabled":False}
-            if value and i+1 == value:
+            option = {"label":col, "value":col, "disabled":False}
+            if value and col == value:
                 option["disabled"] = True
                 # Remove target from value list
             options.append(option)
     return (options, [])
-        
+
+@app.callback(Output("model-graph", "figure"),
+              Input("redundant-checklist", "value"),
+              Input("model-switches", "value"),
+              Input("target-switches", "value"),
+              Input("predictor-switches", 'value'),
+              Input("data", "data"))
+def update_graph(dropped, model_type, target_var, predictors, data):
+    if data and model_type:
+        pass
+    elif model_type:
+        df = iris_data
+        # Drop selected columns
+        if dropped and len(dropped) > 0:
+            df.drop(dropped, axis=1, inplace=True)
+        # Split dataset into training and testing sample
+        train = df.sample(frac=0.8,random_state=200)
+        test = df.drop(train.index)
+        # Extract target variable
+        xtrain = ytrain = xtest = ytest = None
+        if target_var and predictors:
+            ytrain = train[target_var]
+            xtrain = train[predictors]
+            ytest = test[target_var]
+            xtest = test[predictors]
+
+        # Use selected model
+        if model_type is not None and xtrain is not None and ytrain is not None and xtest is not None and ytest is not None:
+            if model_type == "XGBoost":
+                # I need to consider the target datatype to know if it's classification or regression
+                model = None
+                if target_var and ytest.dtype == "object":
+                    xtrain = cat_to_code(xtrain)
+                    xtest = cat_to_code(xtest)
+                    ytrain = ytrain.astype("category").cat.codes
+                    ytest = ytest.astype("category").cat.codes
+                    model = XGBClassifier()
+                elif target_var and (df[target_var].dtype == float or df[target_var].dtype == int):
+                    model = XGBRegressor()
+
+                #model.fit(xtrain.values, ytrain.values, verbose=True)
+                ypred = model.predict(xtest.values)
+                
+                return ({
+                    "data": [
+                        go.Scatter(
+                            x=ypred,
+                            y=ytest.values
+                    )],
+                    "layout":
+                        go.Layout(
+                            width=900,
+                            height=600,
+                            yaxis_autorange='reversed',
+                            yaxis={"showgrid": False, "visible": False, "showticklabels": False},
+                            xaxis={"showgrid": False, "visible": False, "showticklabels": False}
+                        )
+                    },
+                    None, None)
 
 
 ###############################################################################

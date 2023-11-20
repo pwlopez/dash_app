@@ -3,3 +3,5 @@ pandas
 dash
 dash-bootstrap-components
 jupyter
+xgboost
+scikit-learn
